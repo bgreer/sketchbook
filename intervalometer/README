@@ -1,0 +1,12 @@
+
+I've made an intervalometer for my Canon DSLR using an ATmega328p, a 3-8 line decoder, and an 8-character 8-segment display. The ATmega has an Arduino bootloader and is using the internal 8MHz oscillator. This is the Arduino code that controls everything.
+
+I've tried to stick to port manipulation for the 8-char display for speed. It seems to work very well.
+
+The 8-char display has common anodes for each individual character, and common cathodes for each segment, so there are 16 lines total (7 segment + decimal point). The ATmega directly drives the segments, while the 3-8 decoder uses 3 outputs from the ATmega to pick which character to drain. To display a series of characters, the flow is:
+1) disable decoder, no characters visible
+2) increment which character is active
+3) enable outputs to select character through 3-8 decoder
+4) enable outputs for segments that make up the current character
+5) turn decoder back on, wait a bit
+This procedure is done every time one of the internal timers is triggered. The hope is that it will happen quickly enough to result in a persistent string of characters.
