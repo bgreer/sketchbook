@@ -354,7 +354,7 @@ void setup()
   analogWriteResolution(4); // dont need much, 0-15
   randomSeed(analogRead(1)); // not connected
   
-  buttonval = analogRead(BUTTON);
+  buttonval = 800;
   
   for (i=0; i<48; i++)
   {
@@ -486,11 +486,11 @@ void loop()
     
     for (i=0; i<12; i++)
     {
-      r_b[i] = constrain(0.9*r_b[i] + q_mag[i], 0, 255);
+      r_b[i] = constrain(0.94*r_b[i] + q_mag[i], 25, 255);
       r[i] = r_b[i];
-      g_b[i] = constrain(0.9*g[i] + q_mag[i+12],0,255);
+      g_b[i] = constrain(0.95*g[i] + q_mag[i+12],20,255);
       g[i] = g_b[i];
-      b_b[i] = constrain(0.9*b[i] + q_mag[i+24],0,255);
+      b_b[i] = constrain(0.96*b[i] + q_mag[i+24],10,255);
       b[i] = b_b[i];
     }
     
