@@ -58,6 +58,7 @@ void timerCallback1() {
   //currtime += timerinterval;
   
   f_data = (float)((analogRead(A0)-(2<<(RESOLUTION-2))) / (1.*(2<<(RESOLUTION-2))));
+  //f_data = (float)analogRead(A0);
   //f_data = (float)((data-2048.)*gain);
   arm_float_to_q15(&f_data, &q_data, 1);
   

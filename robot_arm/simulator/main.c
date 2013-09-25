@@ -16,5 +16,42 @@
 
 int main ()
 {
+	stack stk;
+	arm_state currst;
 
+	/* init bound arrays */
+	anglelowerbound[0] = -45.0;
+	angleupperbound[0] = 45.0;
+	anglelowerbound[1] = 0.0;
+	angleupperbound[1] = 90.0;
+	anglelowerbound[2] = -130.0;
+	angleupperbound[2] = 20.0;
+	anglelowerbound[3] = -40.0;
+	angleupperbound[3] = 40.0;
+
+
+	/* create the stack */
+	stk.top = NULL;
+
+	/* create current state */
+	getState(&currst);
+	FK(&currst);
+	checkBounds(&currst, 0x03);
+	printState(&currst);
+
+	/* add a target state */
+	stk.top = addEntry(createState_pos(10.0, 0.0, 10.0));
+
+	while (stk.top != NULL)
+	{
+		
+		/* if the current state is close enough to 
+		the state at the top of the stack, remove it */
+		if (dist(&currst, stk.top->state) < 1.0)
+		{
+			// TODO: get rid of skt.top, replace with .next
+		}
+	}
+
+	free_chain(&stk); // dat valgrind
 }

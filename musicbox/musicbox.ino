@@ -306,7 +306,7 @@ float trig1, trig2, trig3, ftemp, x;
 float colormap[NUMBINS*3];
 
 uint32_t currtime, currbin, counter1, counter2;
-uint32_t buttontimer;
+uint32_t buttontimer, buttontimer2;
 q15_t q_data, q_data1, q_data2;
 q15_t q_costable[TRIGTABLESIZE], q_sintable[TRIGTABLESIZE];
 q15_t q_trigmap[NUMBINS*2];
@@ -324,7 +324,7 @@ uint8_t needPulse = 0;
 IntervalTimer Timer1;
 /* these timers are specific to teensy3, use timer registers for regular arduino */
 IntervalTimer Timer3;
-float buttonval;
+float buttonval, buttonder, buttonlast;
 
 uint8_t currmode, prevmode;
 
@@ -350,11 +350,15 @@ void setup()
   
   analogReadResolution(RESOLUTION);
   analogReference(EXTERNAL);
-  analogWriteFrequency(GSCLK, 1000000); // set grayscale clock to 1MHz
-  analogWriteResolution(4); // dont need much, 0-15
+  // the greyscale clock needs to be very fast
+  // if it is too slow (like, 1MHz) then the audio signal will be full of crap
+  analogWriteFrequency(GSCLK, 4000000); // set grayscale clock to 1MHz
+  analogWriteResolution(2); // dont need much, 0-15
   randomSeed(analogRead(1)); // not connected
   
   buttonval = 800;
+  buttonlast = buttonval;
+  buttonder = 0.0;
   
   for (i=0; i<48; i++)
   {
@@ -429,14 +433,14 @@ void setup()
   startup();
   
   currmode = 0;
-  //party_setup();
+  //tuner_setup();
   buttontimer = millis();
-  
+  buttontimer2 = millis();
 }
 
 void timerstart()
 {
-  analogWrite(GSCLK, 1);
+  analogWrite(GSCLK, 2);
   Timer3.begin(timerCallback3, 4096);
 }
 
@@ -467,7 +471,7 @@ void loop()
     // sleep mode
     patterncallback();
     setGS2(0);
-    delay(5);
+    delay(10);
   } else if (currmode == 1) {
     // tuner mode
     /*
@@ -486,16 +490,16 @@ void loop()
     
     for (i=0; i<12; i++)
     {
-      r_b[i] = constrain(0.94*r_b[i] + q_mag[i], 25, 255);
+      r_b[i] = constrain(0.94*r_b[i] + q_mag[i], 10, 255);
       r[i] = r_b[i];
-      g_b[i] = constrain(0.95*g[i] + q_mag[i+12],20,255);
+      g_b[i] = constrain(0.95*g[i] + q_mag[i+12],10,255);
       g[i] = g_b[i];
       b_b[i] = constrain(0.96*b[i] + q_mag[i+24],10,255);
       b[i] = b_b[i];
     }
     
     setGS2(0);
-    delay(15);
+    delay(20);
   } else if (currmode == 2) {
     // party mode
     party_colors();
@@ -553,13 +557,18 @@ void buttonpress()
 
 uint8_t button_pressed ()
 {
-
-  buttonval = 0.9*buttonval + 0.1*analogRead(BUTTON);
+  int i;
+  float val = 0.0;
+  //for (i=0; i<10; i++)
+  //  val += analogRead(BUTTON)/10.;
+  //buttonval = 0.9*buttonval + 0.1*analogRead(BUTTON);
+  //buttonder = 0.9*buttonder + 0.1*(buttonval-buttonlast);
+  //buttonlast = buttonval;
 
   //Serial.println(buttonval);
-  if (buttonval < 500) 
+  if (analogRead(BUTTON) < 2 && millis() - buttontimer2 > 1000)
   {
-    buttonval = 1000;
+    buttontimer2 = millis();
     return 1;
   }
   return 0;
