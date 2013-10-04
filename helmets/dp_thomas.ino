@@ -64,13 +64,13 @@ void setup ()
 	w[3] = 6;
 	w[4] = 9;
 	// HUMAN
-	/*
+	
 	w[0] = 3;
 	w[1] = 10;
 	w[2] = 4;
 	w[3] = 0;
 	w[4] = 5;
-	*/
+	
 	drawWord(5);
 }
 
@@ -87,11 +87,21 @@ void loop()
 			refresh = 1;
 		}
 	} else if (mode == 0) {
-		if (millis() - lastupdate > 0)
+		if (millis() - lastupdate > 50)
 		{
-			int col = random(8);
-			int row = random(8);
-			pix[col] = pix[col] ^ (0x01)<<row;
+			if (random(10) < 8)
+			{
+				int col = random(8);
+				int row = random(8);
+				pix[col] = pix[col] ^ (0x01)<<row;
+				pix[col] = pix[col] >> 1;
+				pix[row] = pix[row] << 1;
+			} else {
+				int col = random(7);
+				uint8_t swap = pix[col];
+				pix[col] = pix[col+1];
+				pix[col+1] = swap;
+			}
 
 			lastupdate = millis();
 			refresh = 1;
@@ -114,7 +124,7 @@ void loop()
 				else val = 0;
 				// shift out register ii, value
 				shift(ii+1);
-				shift(val);
+				shift_rev(val);
 			}
 			// at this point, i have shifted out 6 values
 			// so that each driver will be updated upon latch
@@ -155,6 +165,18 @@ void shift(uint8_t val)
 	}
 }
 
+void shift_rev(uint8_t val)
+{
+	uint8_t ik;
+	for (ik=8; ik>=1; ik--)
+	{
+		digitalWrite(CLOCK, LOW);
+		if (val & (0x01<<(8-ik))) digitalWrite(DATA, HIGH);
+		else digitalWrite(DATA, LOW);
+		digitalWrite(CLOCK, HIGH);
+	}
+}
+
 
 void drawWord(uint8_t len)
 {
@@ -189,6 +211,6 @@ void initMax()
 	put(0x0B, 0x07); // scan limit
 	put(0x0C, 0x01); // shutdown
 	put(0x0F, 0x00); // display test
-	put(0x0A, 0x01); // intensity
+	put(0x0A, 0x0f); // intensity
 }
 
