@@ -16,7 +16,7 @@
 // pixel buffer
 uint8_t pix[BUFFLEN];
 uint8_t w[12];
-uint8_t ii, ij, val, shiftpos, refresh, mode;
+uint8_t ii, ij, val, shiftpos, refresh, mode, pos;
 uint32_t lastupdate, rate, lastbutton;
 
 uint8_t chars[12][7] = {
@@ -55,7 +55,7 @@ void setup ()
 		put(ii, 0x00);
 
 	refresh = 1;
-	rate = 70;
+	rate = 40;
 	shiftpos = 0;
 	// ROBOT
 	w[0] = 7;
@@ -64,13 +64,13 @@ void setup ()
 	w[3] = 6;
 	w[4] = 9;
 	// HUMAN
-	
+	/*
 	w[0] = 3;
 	w[1] = 10;
 	w[2] = 4;
 	w[3] = 0;
 	w[4] = 5;
-	
+	*/
 	drawWord(5);
 }
 
@@ -79,10 +79,10 @@ void loop()
 	// shift placement of buffer on screen by a column
 	if (mode == 1)
 	{
-		if (millis() - lastupdate > rate && shiftpos < BUFFLEN)
+		if (millis() - lastupdate > rate)
 		{
 			shiftpos++;
-			if (shiftpos > BUFFLEN-1) shiftpos = 0;
+			if (shiftpos > 40+BUFFLEN-1) shiftpos = 0;
 			lastupdate = millis();
 			refresh = 1;
 		}
@@ -91,13 +91,13 @@ void loop()
 		{
 			if (random(10) < 8)
 			{
-				int col = random(8);
-				int row = random(8);
-				pix[col] = pix[col] ^ (0x01)<<row;
+				int col = random(16);
+				int row = random(16);
+				pix[col] = pix[col] ^ (0x01)<<random(8);
 				pix[col] = pix[col] >> 1;
 				pix[row] = pix[row] << 1;
 			} else {
-				int col = random(7);
+				int col = random(15);
 				uint8_t swap = pix[col];
 				pix[col] = pix[col+1];
 				pix[col+1] = swap;
@@ -105,7 +105,7 @@ void loop()
 
 			lastupdate = millis();
 			refresh = 1;
-			shiftpos = 8;
+			shiftpos = 25;
 		}
 	}
 
@@ -116,11 +116,12 @@ void loop()
 		for (ii=0; ii<8; ii++) // loop over col within each driver
 		{
 			digitalWrite(LOAD, LOW);
-			for (ij=0; ij<1; ij++) // loop over drivers, loading shift line
+			for (ij=0; ij<2; ij++) // loop over drivers, loading shift line
 			{
 				// if ij*8+ii+shiftpos is on buffer, grab that value
 				// else, grab a 0
-				if (ii+shiftpos-8 < BUFFLEN-1 && ii+shiftpos-8 >= 0) val = pix[ii+shiftpos-8];
+				pos = shiftpos - ii + ij*8 - 16;
+				if (pos <= BUFFLEN-1 && pos >= 0) val = pix[pos];
 				else val = 0;
 				// shift out register ii, value
 				shift(ii+1);
@@ -200,7 +201,7 @@ void drawWord(uint8_t len)
 // shift everything in the pixel buffer horizontally by one pixel
 void shiftDisplay(uint8_t val)
 {
-	for (ii=47; ii>0; ii--)
+	for (ii=39; ii>0; ii--)
 		pix[ii] = pix[ii-1];
 	pix[0] = val;
 }
