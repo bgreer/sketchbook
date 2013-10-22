@@ -4,7 +4,10 @@
 #define NPIX 6 /* number of lights in each mini-strip */
 #define PATTERN_MIN 40
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8*NPIX*2, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8*NPIX, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(8*NPIX, 7, NEO_GRB + NEO_KHZ800);
+
+uint8_t mode;
 
 // colors for each side
 uint8_t lr[8], lg[8], lb[8];
@@ -17,7 +20,7 @@ float dir[3];
 float colval[3];
 int mult[3];
 
-float dim = 2.0;
+float dim = 1.0;
 
 void setup()
 {
@@ -28,10 +31,11 @@ void setup()
 	build_table(255.0);
 	Serial.println("initializing strip..");
   strip.begin();
+	strip2.begin();
   blank();
 	mapcolors();
-  strip.show();
 	delay(500);
+	mode = 1;
 
 	// init the strand now with the default colors
 	for (ii=0; ii<8; ii++)
@@ -41,9 +45,10 @@ void setup()
 	}
 	Serial.println(lg[0]);
 	mapcolors();
-	strip.show();
 
-	test(10);
+	dim = 10.0;
+	test(50);
+	dim = 1.0;
 
   pos[0] = 0.0;
   pos[1] = 3.0;
@@ -51,21 +56,25 @@ void setup()
   
   colval[0] = random(256-PATTERN_MIN)+PATTERN_MIN;
   dir[0] = 0.21;
-  mult[0] = random(4);
+  mult[0] = random(3)+1;
+	mult[0] = 0;
   
   colval[1] = random(256-PATTERN_MIN)+PATTERN_MIN;
   dir[1] = 0.2;
-  mult[1] = random(4);
+  mult[1] = random(3)+1;
+	mult[1] =0 ;
   
   colval[2] = random(256-PATTERN_MIN)+PATTERN_MIN;
   dir[2] = 0.3;
-  mult[2] = random(4);
+  mult[2] = random(3)+1;
 }
 
 void loop()
 {
 	uint8_t ii, ij;
 
+	if (mode==0)
+	{
   pos[0] += 0.07;
   pos[1] += 0.05;
   pos[2] -= 0.03;
@@ -86,23 +95,23 @@ void loop()
     rg[ij] = (uint8_t)((int)(colval[1]*pow(sin(mult[1]*PI*(ij-pos[1])/16.),2.)));
     rb[ij] = (uint8_t)((int)(colval[2]*pow(sin(mult[2]*PI*(ij-pos[2])/16.),2.)));
 
-		lr[ij] = (uint8_t)((int)(colval[0]*pow(sin(mult[0]*PI*(ij+8-pos[0])/16.),2.)));
-    lg[ij] = (uint8_t)((int)(colval[1]*pow(sin(mult[1]*PI*(ij+8-pos[1])/16.),2.)));
-    lb[ij] = (uint8_t)((int)(colval[2]*pow(sin(mult[2]*PI*(ij+8-pos[2])/16.),2.)));
+		lr[ij] = (uint8_t)((int)(colval[0]*pow(sin(mult[0]*PI*(8-ij-pos[0])/16.),2.)));
+    lg[ij] = (uint8_t)((int)(colval[1]*pow(sin(mult[1]*PI*(8-ij-pos[1])/16.),2.)));
+    lb[ij] = (uint8_t)((int)(colval[2]*pow(sin(mult[2]*PI*(8-ij-pos[2])/16.),2.)));
   }
 	mapcolors();
-	strip.show();
 
 	delay(10);
-/*
+	} else if (mode==1){	
+
 	for (ii=2; ii<=4; ii++)
 	{
 		swipeup(ii, 70);
 		swipedown(ii,70);
 	}
 	delay(100);
-	*/
-/*
+	
+
 	dim = 26.0;
 	for (ii=0; ii<8; ii++)
 	{
@@ -110,13 +119,11 @@ void loop()
 		defaultcolors(ii, rr+ii, rg+ii, rb+ii);
 	}
 	mapcolors();
-	strip.show();
 	delay(50);
 	for (ii=0; ii<50; ii++)
 	{
 		dim *= 0.95;
 		mapcolors();
-		strip.show();
 		delay(10);
 	}
 	delay(100);
@@ -124,16 +131,14 @@ void loop()
 	{
 		dim /= 0.95;
 		mapcolors();
-		strip.show();
 		delay(10);
 	}
-	dim = 2.0;
+	dim = 1.0;
 	blank();
 	mapcolors();
-	strip.show();
 	delay(300);
-*/
-/*
+
+
 	stack(60);
 	delay(200);
 	unstack(60);
@@ -151,7 +156,7 @@ void loop()
 		flash(200);
 
 	delay(100);
-	*/
+	}
 }
 
 void test(int d)
@@ -159,40 +164,33 @@ void test(int d)
 	uint8_t ii;
 	blank();
 	mapcolors();
-	strip.show();
 	delay(d);
 	for (ii=0; ii<8; ii++)
 	{
 		rr[ii] = lr[ii] = 255;
 		mapcolors();
-		strip.show();
 		delay(d);
 	}
 	blank();
 	mapcolors();
-	strip.show();
 	delay(d);
 	for (ii=0; ii<8; ii++)
 	{
 		rg[ii] = lg[ii] = 255;
 		mapcolors();
-		strip.show();
 		delay(d);
 	}
 	blank();
 	mapcolors();
-	strip.show();
 	delay(d);
 	for (ii=0; ii<8; ii++)
 	{
 		rb[ii] = lb[ii] = 255;
 		mapcolors();
-		strip.show();
 		delay(d);
 	}
 	blank();
 	mapcolors();
-	strip.show();
 	delay(d);
 
 }
@@ -212,7 +210,6 @@ void flash(int d)
 		}
 	}
 	mapcolors();
-	strip.show();
 	delay(d);
 	for (ii=0; ii<8; ii++)
 	{
@@ -226,7 +223,6 @@ void flash(int d)
 		}
 	}
 	mapcolors();
-	strip.show();
 	delay(d);
 }
 
@@ -269,7 +265,6 @@ void stackhelper2 (uint8_t stacked, int8_t pos)
 		}
 	}
 	mapcolors();
-	strip.show();
 }
 
 
@@ -314,7 +309,6 @@ void stackhelper (uint8_t stacked, uint8_t pos)
 		}
 	}
 	mapcolors();
-	strip.show();
 }
 
 void swipedown(uint8_t width, int d)
@@ -337,7 +331,6 @@ void swipedown(uint8_t width, int d)
 				lr[ii] = lg[ii] = lb[ii] = 0;
 			}
 			mapcolors();
-			strip.show();
     }
 		delay(d);
   }
@@ -364,7 +357,6 @@ void swipeup(uint8_t width, int d)
 				lr[ii] = lg[ii] = lb[ii] = 0;
 			}
 			mapcolors();
-			strip.show();
     }
 		delay(d);
   }
@@ -380,11 +372,12 @@ void mapcolors()
     for (ij=0; ij<NPIX; ij++)
     {
       strip.setPixelColor(ii*NPIX+ij, expcor[(uint8_t)(rr[ii]/dim)], expcor[(uint8_t)(rg[ii]/dim)], expcor[(uint8_t)(rb[ii]/dim)]);
-      strip.setPixelColor((ii+8)*NPIX+ij, expcor[(uint8_t)(lr[ii]/dim)], expcor[(uint8_t)(lg[ii]/dim)], expcor[(uint8_t)(lb[ii]/dim)]);
+      strip2.setPixelColor(ii*NPIX+ij, expcor[(uint8_t)(lr[ii]/dim)], expcor[(uint8_t)(lg[ii]/dim)], expcor[(uint8_t)(lb[ii]/dim)]);
     }
   }
   
   strip.show();
+	strip2.show();
 }
 
 
