@@ -1,24 +1,28 @@
 #include <Adafruit_NeoPixel.h>
 
-#define PIN 6
+#define NUMMODES 3
+#define MODE_OFF 0
+#define MODE_CLASSIC 1
+#define MODE_PATTERN 2
+
+#define LED 13
+#define BUTTON 2
+#define DATALEFT 6
+#define DATARIGHT 7
 #define NPIX 6 /* number of lights in each mini-strip */
 #define PATTERN_MIN 40
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8*NPIX, PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(8*NPIX, 7, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8*NPIX, DATALEFT, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(8*NPIX, DATARIGHT, NEO_GRB + NEO_KHZ800);
 
-uint8_t mode;
+volatile uint8_t mode;
+uint8_t lastmode;
+uint32_t lastupdate;
 
 // colors for each side
 uint8_t lr[8], lg[8], lb[8];
 uint8_t rr[8], rg[8], rb[8];
 uint8_t expcor[256]; // exponential correction lookup table
-
-// for new mode
-float pos[3];
-float dir[3];
-float colval[3];
-int mult[3];
 
 float dim = 1.0;
 
@@ -27,136 +31,70 @@ void setup()
 	uint8_t ii;
 	randomSeed(analogRead(0));
 	Serial.begin(115200);
-	Serial.println("building table..");
+	// build exponential correction table
 	build_table(255.0);
-	Serial.println("initializing strip..");
+	// begin neopixel driver
   strip.begin();
 	strip2.begin();
+
   blank();
 	mapcolors();
-	delay(500);
-	mode = 1;
+	mode = 0;
+	lastmode = -1;
 
-	// init the strand now with the default colors
-	for (ii=0; ii<8; ii++)
-	{
-		defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-	}
-	Serial.println(lg[0]);
-	mapcolors();
+	// set up button
+	pinMode(BUTTON, INPUT);
+	digitalWrite(BUTTON, HIGH); // internal pullup
+	attachInterrupt(0, buttonCallback, FALLING);
 
-	dim = 10.0;
-	test(50);
-	dim = 1.0;
+	dim = 2.0;
 
-  pos[0] = 0.0;
-  pos[1] = 3.0;
-  pos[2] = 5.0;
-  
-  colval[0] = random(256-PATTERN_MIN)+PATTERN_MIN;
-  dir[0] = 0.21;
-  mult[0] = random(3)+1;
-	mult[0] = 0;
-  
-  colval[1] = random(256-PATTERN_MIN)+PATTERN_MIN;
-  dir[1] = 0.2;
-  mult[1] = random(3)+1;
-	mult[1] =0 ;
-  
-  colval[2] = random(256-PATTERN_MIN)+PATTERN_MIN;
-  dir[2] = 0.3;
-  mult[2] = random(3)+1;
 }
+
+void buttonCallback()
+{
+	if (millis() > 500 && millis()-lastbutton > 250)
+	{
+		mode ++;
+		if (mode == NUMMODES) mode = 0;
+		digitalWrite(LED, mode);
+		lastbutton = millis();
+	}
+}
+
 
 void loop()
 {
 	uint8_t ii, ij;
 
-	if (mode==0)
+	if (mode==MODE_OFF)
 	{
-  pos[0] += 0.07;
-  pos[1] += 0.05;
-  pos[2] -= 0.03;
-
-  colval[0] += dir[0];
-  if (colval[0] > 255) {colval[0] = 255; dir[0] = -dir[0];}
-  if (colval[0] < PATTERN_MIN) {colval[0] = PATTERN_MIN; dir[0] = -dir[0]; mult[0] = random(4)+1;}
-  colval[1] += dir[1];
-  if (colval[1] > 255) {colval[1] = 255; dir[1] = -dir[1];}
-  if (colval[1] < PATTERN_MIN) {colval[1] = PATTERN_MIN; dir[1] = -dir[1]; mult[1] = random(4)+1;}
-  colval[2] += dir[2];
-  if (colval[2] > 255) {colval[2] = 255; dir[2] = -dir[2];}
-  if (colval[2] < PATTERN_MIN) {colval[2] = PATTERN_MIN; dir[2] = -dir[2]; mult[2] = random(4)+1;}
-  //currtime = micros();
-  for (ij=0; ij<8; ij++)
-  {
-    rr[ij] = (uint8_t)((int)(colval[0]*pow(sin(mult[0]*PI*(ij-pos[0])/16.),2.)));
-    rg[ij] = (uint8_t)((int)(colval[1]*pow(sin(mult[1]*PI*(ij-pos[1])/16.),2.)));
-    rb[ij] = (uint8_t)((int)(colval[2]*pow(sin(mult[2]*PI*(ij-pos[2])/16.),2.)));
-
-		lr[ij] = (uint8_t)((int)(colval[0]*pow(sin(mult[0]*PI*(8-ij-pos[0])/16.),2.)));
-    lg[ij] = (uint8_t)((int)(colval[1]*pow(sin(mult[1]*PI*(8-ij-pos[1])/16.),2.)));
-    lb[ij] = (uint8_t)((int)(colval[2]*pow(sin(mult[2]*PI*(8-ij-pos[2])/16.),2.)));
-  }
-	mapcolors();
-
-	delay(10);
-	} else if (mode==1){	
-
-	for (ii=2; ii<=4; ii++)
-	{
-		swipeup(ii, 70);
-		swipedown(ii,70);
+		if (lastmode != mode)
+		{
+			blank();
+			mapcolors();
+			lastmode = mode;
+		}
+	} else if (mode==MODE_CLASSIC) {
+		if (lastmode != mode)
+		{
+			pattern_init();
+			lastmode = mode;
+		}
+		if (millis() - lastupdate > 10)
+		{
+			pattern_step();
+			lastupdate = millis();
+		}
+	} else if (mode==MODE_PATTERN){
+		if (lastmode != mode)
+		{
+			classic_init()
+			lastmode = mode;
+		}
+		classic_step();
 	}
-	delay(100);
-	
-
-	dim = 26.0;
-	for (ii=0; ii<8; ii++)
-	{
-		defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-	}
-	mapcolors();
-	delay(50);
-	for (ii=0; ii<50; ii++)
-	{
-		dim *= 0.95;
-		mapcolors();
-		delay(10);
-	}
-	delay(100);
-	for (ii=0; ii<50; ii++)
-	{
-		dim /= 0.95;
-		mapcolors();
-		delay(10);
-	}
-	dim = 1.0;
-	blank();
-	mapcolors();
-	delay(300);
-
-
-	stack(60);
-	delay(200);
-	unstack(60);
-	delay(200);
-
-	for (ii=0; ii<5; ii++)
-	{
-		swipeup(random(2)+1,70);
-		delay(50);
-	}
-
-	delay(100);
-
-	for (ii=0; ii<5; ii++)
-		flash(200);
-
-	delay(100);
-	}
+	delay(1);
 }
 
 void test(int d)
@@ -195,172 +133,7 @@ void test(int d)
 
 }
 
-void flash(int d)
-{
-	uint8_t ii,ij;
-	for (ii=0; ii<8; ii++)
-	{
-		if (ii%2==0)
-		{
-			defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-			defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		} else {
-			rr[ii] = rg[ii] = rb[ii] = 0;
-			lr[ii] = lg[ii] = lb[ii] = 0;
-		}
-	}
-	mapcolors();
-	delay(d);
-	for (ii=0; ii<8; ii++)
-	{
-		if (ii%2==1)
-		{
-			defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-			defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		} else {
-			rr[ii] = rg[ii] = rb[ii] = 0;
-			lr[ii] = lg[ii] = lb[ii] = 0;
-		}
-	}
-	mapcolors();
-	delay(d);
-}
 
-// unstack colors
-void unstack(int d)
-{
-	uint8_t stacked = 8;
-	int8_t pos;
-
-	while (stacked > 0)
-	{
-		pos = 8-stacked;
-		stacked --;
-		while (pos >= 0)
-		{
-			pos --;
-			stackhelper2(stacked, pos);
-			delay(d);
-		}
-		stackhelper2(stacked, pos);
-		delay(d);
-	}
-}
-
-void stackhelper2 (uint8_t stacked, int8_t pos)
-{
-	uint8_t ii;
-	for (ii=0; ii<8; ii++)
-	{
-		if (ii >= 8-stacked)
-		{
-			defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-			defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		} else if (ii == pos) {
-			defaultcolors(7-stacked, rr+ii, rg+ii, rb+ii);
-			defaultcolors(7-stacked, lr+ii, lg+ii, lb+ii);
-    } else {
-			rr[ii] = rg[ii] = rb[ii] = 0;
-			lr[ii] = lg[ii] = lb[ii] = 0;
-		}
-	}
-	mapcolors();
-}
-
-
-// stack lights
-void stack(int d)
-{
-	uint8_t stacked = 0;
-	uint8_t pos = 8;
-
-	while (stacked < 8)
-	{
-		// stack a new light
-		pos = 8;
-		while (pos > stacked)
-		{
-			pos --;
-			stackhelper(stacked, pos);
-			delay(d);
-		}
-		pos = 8;
-		stacked ++;
-		stackhelper(stacked, pos);
-		delay(d);
-	}
-}
-
-void stackhelper (uint8_t stacked, uint8_t pos)
-{
-	uint8_t ii;
-	for (ii=0; ii<8; ii++)
-	{
-		if (ii < stacked)
-		{
-			defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-			defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-		} else if (ii == pos) {
-			defaultcolors(stacked, rr+ii, rg+ii, rb+ii);
-			defaultcolors(stacked, lr+ii, lg+ii, lb+ii);
-    } else {
-			rr[ii] = rg[ii] = rb[ii] = 0;
-			lr[ii] = lg[ii] = lb[ii] = 0;
-		}
-	}
-	mapcolors();
-}
-
-void swipedown(uint8_t width, int d)
-{
-  int8_t offset = 0;
-  int8_t ii;
-  
-  for (offset = 6+width; offset>=0; offset--)
-  {
-    // set each light
-    for (ii=0; ii<8; ii++)
-    {
-      // if within the swipe
-      if (ii <= offset && ii > offset-width)
-      {
-        defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-				defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-      } else {
-				rr[ii] = rg[ii] = rb[ii] = 0;
-				lr[ii] = lg[ii] = lb[ii] = 0;
-			}
-			mapcolors();
-    }
-		delay(d);
-  }
-}
-
-// swipe a band up or down, width min = 1, max = 8
-void swipeup(uint8_t width, int d)
-{
-  int8_t offset = 0;
-  int8_t ii;
-  
-  for (offset = 0; offset<7+width; offset++)
-  {
-    // set each light
-    for (ii=0; ii<8; ii++)
-    {
-      // if within the swipe
-      if (ii <= offset && ii > offset-width)
-      {
-        defaultcolors(ii, rr+ii, rg+ii, rb+ii);
-				defaultcolors(ii, lr+ii, lg+ii, lb+ii);
-      } else {
-				rr[ii] = rg[ii] = rb[ii] = 0;
-				lr[ii] = lg[ii] = lb[ii] = 0;
-			}
-			mapcolors();
-    }
-		delay(d);
-  }
-}
 
 // take the color arrays and map them to the neopixel buffer
 void mapcolors()
@@ -381,50 +154,6 @@ void mapcolors()
 }
 
 
-// for each of the 8 strips, figure out the default rainbow colors
-// puts the correct rgb values into r,g,b, wherever they may point
-void defaultcolors(uint8_t index, uint8_t *r, uint8_t *g, uint8_t *b)
-{
-  *r = 0;
-  *g = 0;
-  *b = 0;
-  switch (index)
-  {
-    case 0:
-      *r = 255;
-      break;
-    case 1:
-      *r = 240;
-      *g = 120;
-      break;
-    case 2:
-      *r = 200;
-      *g = 200;
-      break;
-    case 3:
-      *r = 70;
-      *g = 220;
-      *b = 30;
-      break;
-    case 4:
-      *g = 220;
-      *b = 100;
-      break;
-    case 5:
-      *g = 220;
-      *b = 220;
-      break;
-    case 6:
-			*g = 30;
-      *b = 220;
-      *r = 120;
-      break;
-    case 7:
-      *b = 200;
-      *r = 200;
-      break;
-  }
-}
 
 // sets all lights to black
 void blank()
